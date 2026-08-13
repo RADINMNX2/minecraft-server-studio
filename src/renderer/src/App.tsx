@@ -16,6 +16,7 @@ export default function App() {
   const [servers, setServers] = useState<ServerInfo[]>([])
   const [loaders, setLoaders] = useState<LoaderMeta[]>([])
   const [logs, setLogs] = useState<Record<string, string[]>>({})
+  const [playersMap, setPlayersMap] = useState<Record<string, string[]>>({})
   const [progress, setProgress] = useState<{ phase: string; percent: number } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [tunnel, setTunnel] = useState<{ active: boolean; urls: string[]; error?: string }>({ active: false, urls: [] })
@@ -40,6 +41,8 @@ export default function App() {
         setServers((prev) => prev.map((s) => (s.id === e.serverId ? { ...s, status: e.status, pid: e.pid ?? s.pid } : s)))
       } else if (e.event === 'players') {
         setServers((prev) => prev.map((s) => (s.id === e.serverId ? { ...s, players_online: e.online, players_max: e.max } : s)))
+      } else if (e.event === 'players_list') {
+        setPlayersMap((prev) => ({ ...prev, [e.serverId]: e.names }))
       } else if (e.event === 'log') {
         setLogs((prev) => {
           const arr = prev[e.serverId] ? [...prev[e.serverId]] : []
@@ -106,6 +109,7 @@ export default function App() {
             server={selected}
             logs={logs[selected.id] || []}
             tunnel={tunnel}
+            players={playersMap[selected.id] || []}
             onBack={() => { setView('dashboard'); refreshServers() }}
             onStart={async () => { await call('start_server', { id: selected.id }) }}
             onStop={async () => { await call('stop_server', { id: selected.id }) }}

@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react'
 import type { ServerInfo } from '../../../shared/types'
 import { Console } from '../components/Console'
 import { AddressChip } from '../components/AddressChip'
+import { PlayerPanel } from '../components/PlayerPanel'
 import { call } from '../api'
 
-type Tab = 'console' | 'settings' | 'online'
+type Tab = 'console' | 'settings' | 'online' | 'players'
 
 export function ServerDetail({
   server,
   logs,
   tunnel,
+  players,
   onBack,
   onStart,
   onStop,
@@ -22,6 +24,7 @@ export function ServerDetail({
   server: ServerInfo
   logs: string[]
   tunnel: { active: boolean; urls: string[]; error?: string }
+  players: string[]
   onBack: () => void
   onStart: () => void
   onStop: () => void
@@ -84,9 +87,9 @@ export function ServerDetail({
       </div>
 
       <div className="tabs">
-        {(['console', 'settings', 'online'] as Tab[]).map((t) => (
+        {(['console', 'settings', 'online', 'players'] as Tab[]).map((t) => (
           <div key={t} className={'tab' + (tab === t ? ' active' : '')} onClick={() => setTab(t)}>
-            {t === 'console' ? 'کنسول' : t === 'settings' ? 'تنظیمات' : 'دسترسی آنلاین'}
+            {t === 'console' ? 'کنسول' : t === 'settings' ? 'تنظیمات' : t === 'online' ? 'دسترسی آنلاین' : 'بازیکنان'}
           </div>
         ))}
       </div>
@@ -169,6 +172,10 @@ export function ServerDetail({
           )}
           {tunnel.error && <p className="tag" style={{ color: 'var(--bad)' }}>خطا: {tunnel.error}</p>}
         </div>
+      )}
+
+      {tab === 'players' && (
+        <PlayerPanel serverId={server.id} players={players} showToast={showToast} />
       )}
     </>
   )

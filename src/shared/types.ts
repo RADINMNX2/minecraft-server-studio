@@ -86,12 +86,34 @@ export interface ReqDeleteServer { method: 'delete_server'; params: { id: string
 export interface ReqGetProperties { method: 'get_properties'; params: { id: string } }
 export interface ReqSetProperty { method: 'set_property'; params: { id: string; key: string; value: string } }
 export interface ReqGetJavaForVersion { method: 'required_java'; params: { version: string } }
+export interface ReqListPlayers { method: 'list_players'; params: { id: string } }
+export interface ReqPlayerAction {
+  method: 'player_action';
+  params: {
+    id: string;
+    action: 'ban' | 'pardon' | 'kick' | 'op' | 'deop' | 'gamemode' | 'tp' | 'xp' | 'give' | 'heal' | 'feed';
+    target: string;
+    mode?: string;
+    x?: number;
+    y?: number;
+    z?: number;
+    amount?: number;
+    item?: string;
+  };
+}
+export interface ReqListBanned { method: 'list_banned'; params: { id: string } }
+
+export interface BannedPlayer {
+  name: string;
+  reason: string;
+}
 
 export type BackendRequest =
   | ReqListLoaders | ReqListVersions | ReqDetectJava | ReqCreateServer
   | ReqListServers | ReqStartServer | ReqStopServer | ReqRestartServer
   | ReqSendCommand | ReqGetLogs | ReqDeleteServer | ReqGetProperties
-  | ReqSetProperty | ReqGetJavaForVersion;
+  | ReqSetProperty | ReqGetJavaForVersion | ReqListPlayers | ReqPlayerAction
+  | ReqListBanned;
 
 export type RequestMap = {
   list_loaders: { params: ReqListLoaders['params']; result: LoaderMeta[] };
@@ -108,6 +130,9 @@ export type RequestMap = {
   get_properties: { params: ReqGetProperties['params']; result: Record<string, string> };
   set_property: { params: ReqSetProperty['params']; result: { ok: boolean } };
   required_java: { params: ReqGetJavaForVersion['params']; result: { major: number } };
+  list_players: { params: ReqListPlayers['params']; result: string[] };
+  player_action: { params: ReqPlayerAction['params']; result: { ok: boolean } };
+  list_banned: { params: ReqListBanned['params']; result: BannedPlayer[] };
 };
 
 // ---- Events (Rust -> Electron, unsolicited) ----
@@ -115,6 +140,7 @@ export type BackendEvent =
   | { event: 'log'; serverId: string; line: string; level: LogLevel; ts: number }
   | { event: 'status'; serverId: string; status: ServerStatus; pid?: number }
   | { event: 'players'; serverId: string; online: number; max: number }
+  | { event: 'players_list'; serverId: string; names: string[] }
   | { event: 'download'; phase: string; serverId?: string; percent: number; done: boolean }
   | { event: 'java_download'; major: number; percent: number; done: boolean }
   | { event: 'error'; serverId?: string; message: string };

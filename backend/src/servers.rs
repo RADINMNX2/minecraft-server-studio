@@ -53,6 +53,7 @@ struct ServerRuntime {
     logs: VecDeque<String>,
     players_online: u32,
     players_max: u32,
+    players: Vec<String>,
     pid: Option<u32>,
     java_path: Option<String>,
     java_override: Option<u32>,
@@ -194,6 +195,7 @@ impl ServerManager {
             logs: VecDeque::new(),
             players_online: 0,
             players_max: 0,
+            players: Vec::new(),
             pid: None,
             java_path: None,
             java_override: None,
@@ -492,6 +494,80 @@ impl ServerManager {
         }
     }
 
+    pub async fn list_players(&self, id: &str) -> Result<Vec<String>, String> {
+        let rt = self.servers.lock().await.get(id).cloned().ok_or("سرور یافت نشد")?;
+        {
+            let mut state = rt.lock().await;
+            if state.stdin.is_some() {
+                let _ = state.stdin.as_mut().unwrap().write_all(b"list\n").await;
+                let _ = state.stdin.as_mut().unwrap().flush().await;
+            }
+        }
+        let state = rt.lock().await;
+        Ok(state.players.clone())
+    }
+
+    pub async fn player_action(
+        &self,
+        id: &str,
+        action: &str,
+        target: &str,
+        mode: Option<&str>,
+        x: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        amount: Option<u32>,
+        item: Option<&str>,
+    ) -> Result<(), String> {
+        let cmd = match action {
+            "ban" => format!("ban {target}"),
+            "pardon" => format!("pardon {target}"),
+            "kick" => format!("kick {target}"),
+            "op" => format!("op {target}"),
+            "deop" => format!("deop {target}"),
+            "gamemode" => {
+                let m = mode.unwrap_or("survival");
+                format!("gamemode {m} {target}")
+            }
+            "tp" => {
+                let (x, y, z) = (x.ok_or("x لازم است")?, y.ok_or("y لازم است")?, z.ok_or("z لازم است")?);
+                format!("tp {target} {x} {y} {z}")
+            }
+            "xp" => {
+                let n = amount.ok_or("مقدار XP لازم است")?;
+                format!("xp set {target} {n} levels")
+            }
+            "give" => {
+                let item = item.ok_or("آیتم لازم است")?;
+                let n = amount.unwrap_or(1);
+                format!("give {target} {item} {n}")
+            }
+            "heal" => format!("effect give {target} minecraft:instant_health 1 255"),
+            "feed" => format!("effect give {target} minecraft:saturation 1 255"),
+            _ => return Err("عملیات نامعتبر".into()),
+        };
+        self.send_command(id, &cmd).await
+    }
+
+    pub async fn list_banned(&self, id: &str) -> Result<Vec<(String, String)>, String> {
+        let rt = self.servers.lock().await.get(id).cloned().ok_or("سرور یافت نشد")?;
+        let dir = Path::new(&rt.lock().await.config.path);
+        let path = dir.join("banned-players.json");
+        let content = fs::read_to_string(&path).await.unwrap_or_else(|_| "[]".into());
+        let arr: serde_json::Value = serde_json::from_str(&content).unwrap_or(serde_json::Value::Array(vec![]));
+        let mut out = Vec::new();
+        if let Some(arr) = arr.as_array() {
+            for e in arr {
+                let name = e.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let reason = e.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if !name.is_empty() {
+                    out.push((name, reason));
+                }
+            }
+        }
+        Ok(out)
+    }
+
     pub async fn get_logs(&self, id: &str, tail: usize) -> Vec<String> {
         if let Some(rt) = self.servers.lock().await.get(id) {
             let state = rt.lock().await;
@@ -581,17 +657,23 @@ async fn pump(stream: ChildStdout, ctx: Ctx, is_stderr: bool) {
     let mut reader = BufReader::new(stream).lines();
     while let Ok(Some(line)) = reader.next_line().await {
         let level = if is_stderr { "error" } else { detect_level(&line) };
-        {
+        let changed = {
             let mut st = ctx.state.lock().await;
             if st.logs.len() >= LOG_CAP {
                 st.logs.pop_front();
             }
             st.logs.push_back(line.clone());
-            update_players(&line, &mut st.players_online, &mut st.players_max);
-        }
+            update_players(&line, &mut st.players_online, &mut st.players_max, &mut st.players)
+        };
         let _ = ctx.bus.send(serde_json::json!({
             "event": "log", "serverId": ctx.id, "level": level, "line": line, "ts": now()
         }));
+        if changed {
+            let names = ctx.state.lock().await.players.clone();
+            let _ = ctx.bus.send(serde_json::json!({
+                "event": "players_list", "serverId": ctx.id, "names": names
+            }));
+        }
     }
 }
 
@@ -607,16 +689,71 @@ fn detect_level(line: &str) -> &'static str {
     }
 }
 
-fn update_players(line: &str, online: &mut u32, max: &mut u32) {
+fn line_before(line: &str, suffix: &str) -> Option<String> {
+    if let Some(idx) = line.rfind(suffix) {
+        let mut name = line[..idx].trim();
+        while name.ends_with(']') || name.ends_with(':') || name.ends_with(' ') {
+            name = name[..name.len() - 1].trim();
+        }
+        if !name.is_empty() {
+            return Some(name.to_string());
+        }
+    }
+    None
+}
+
+fn update_players(line: &str, online: &mut u32, max: &mut u32, players: &mut Vec<String>) -> bool {
+    let mut changed = false;
     if let Some(idx) = line.find("There are ") {
         let tail = &line[idx + 10..];
         if let Some(sp) = tail.find(" of a max ") {
-            if let (Ok(o), Some(mp)) = (tail[..sp].trim().parse::<u32>(), tail[sp + 9..].trim().split(' ').next()) {
-                if let Ok(m) = mp.parse::<u32>() {
+            if let Ok(o) = tail[..sp].trim().parse::<u32>() {
+                *online = o;
+                if let Some(mp) = tail[sp + 9..].trim().split(' ').next() {
+                    if let Ok(m) = mp.parse::<u32>() {
+                        *max = m;
+                    }
+                }
+            }
+        } else if let Some(sp) = tail.find(" players online") {
+            let numpart = tail[..sp].trim();
+            if let Some(slash) = numpart.find('/') {
+                if let (Ok(o), Ok(m)) = (numpart[..slash].trim().parse::<u32>(), numpart[slash + 1..].trim().parse::<u32>()) {
                     *online = o;
                     *max = m;
                 }
+            } else if let Ok(o) = numpart.parse::<u32>() {
+                *online = o;
             }
         }
+        if let Some(colo) = line.rfind("online:") {
+            let names_part = &line[colo + 7..];
+            let names: Vec<String> = names_part
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if names != *players {
+                *players = names;
+                changed = true;
+            }
+        } else if !players.is_empty() {
+            *players = Vec::new();
+            changed = true;
+        }
     }
+    if let Some(name) = line_before(line, " joined the game") {
+        if !players.contains(&name) {
+            players.push(name);
+            changed = true;
+        }
+    }
+    if let Some(name) = line_before(line, " left the game") {
+        if let Some(pos) = players.iter().position(|p| p == &name) {
+            players.remove(pos);
+            changed = true;
+        }
+    }
+    changed
+}
 }

@@ -142,6 +142,33 @@ async fn handle(
             mgr.set_property(id, key, value).await?;
             Ok(json!({ "ok": true }))
         }
+        "list_players" => {
+            let id = params.get("id").and_then(|v| v.as_str()).ok_or("id الزامی است")?;
+            let names = mgr.list_players(id).await?;
+            Ok(serde_json::to_value(names).unwrap())
+        }
+        "player_action" => {
+            let id = params.get("id").and_then(|v| v.as_str()).ok_or("id الزامی است")?;
+            let action = params.get("action").and_then(|v| v.as_str()).ok_or("action الزامی است")?;
+            let target = params.get("target").and_then(|v| v.as_str()).ok_or("target الزامی است")?;
+            let mode = params.get("mode").and_then(|v| v.as_str());
+            let x = params.get("x").and_then(|v| v.as_f64());
+            let y = params.get("y").and_then(|v| v.as_f64());
+            let z = params.get("z").and_then(|v| v.as_f64());
+            let amount = params.get("amount").and_then(|v| v.as_u64()).map(|n| n as u32);
+            let item = params.get("item").and_then(|v| v.as_str());
+            mgr.player_action(id, action, target, mode, x, y, z, amount, item).await?;
+            Ok(json!({ "ok": true }))
+        }
+        "list_banned" => {
+            let id = params.get("id").and_then(|v| v.as_str()).ok_or("id الزامی است")?;
+            let banned = mgr.list_banned(id).await?;
+            let out: Vec<serde_json::Value> = banned
+                .into_iter()
+                .map(|(name, reason)| json!({ "name": name, "reason": reason }))
+                .collect();
+            Ok(serde_json::to_value(out).unwrap())
+        }
         other => Err(format!("متد ناشناخته: {other}")),
     }
 }

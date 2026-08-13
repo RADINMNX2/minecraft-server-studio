@@ -38,7 +38,10 @@ jobs:
       - name: Build Electron app
         run: npm run build
 
-      - name: Build & publish installer (.exe)
-        run: npm run dist:ci
+      - name: Build installer (.exe)
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create ${{ github.ref_name }} release/MCSS-Setup-*.exe --title "Minecraft Server Studio ${{ github.ref_name }}" --generate-notes

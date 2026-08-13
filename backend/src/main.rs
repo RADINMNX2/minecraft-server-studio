@@ -69,6 +69,7 @@ async fn main() {
             }
         });
     }
+    });
 }
 
 async fn handle(
@@ -173,5 +174,4 @@ async fn handle(
         }
         other => Err(format!("متد ناشناخته: {other}")),
     }
-    }).await;
 }

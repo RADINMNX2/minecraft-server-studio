@@ -13,8 +13,10 @@ use tokio::sync::Mutex;
 use crate::ipc::{Request, Response};
 use crate::servers::ServerManager;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
+    let local = tokio::task::LocalSet::new();
+    local.run_until(async {
     // stdout writer shared by responses and events to keep JSON lines atomic.
     let out = tokio::io::stdout();
     let out_mutex = Arc::new(Mutex::new(BufWriter::new(out)));
@@ -25,7 +27,7 @@ async fn main() {
     {
         let out_mutex = out_mutex.clone();
         let mut rx = bus.subscribe();
-        tokio::spawn(async move {
+        tokio::task::spawn_local(async move {
             while let Ok(ev) = rx.recv().await {
                 let line = serde_json::to_string(&ev).unwrap_or_default();
                 let mut w = out_mutex.lock().await;
@@ -54,7 +56,7 @@ async fn main() {
         let params = req.params.clone();
         let mgr = manager.clone();
         let out_mutex = out_mutex.clone();
-        tokio::spawn(async move {
+        tokio::task::spawn_local(async move {
             let result = handle(id, &method, params, mgr).await;
             let resp = match result {
                 Ok(v) => Response { id, result: Some(v), error: None },
@@ -171,4 +173,5 @@ async fn handle(
         }
         other => Err(format!("متد ناشناخته: {other}")),
     }
+    }).await;
 }

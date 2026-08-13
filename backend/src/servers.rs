@@ -398,7 +398,7 @@ impl ServerManager {
         let bus2 = self.bus.clone();
         let mgr2 = mgr.clone();
         let id2 = cfg.id.clone();
-        tokio::spawn(async move {
+        tokio::task::spawn_local(async move {
             let code = {
                 let mut st = rt2.lock().await;
                 if let Some(c) = st.child.as_mut() {
@@ -432,8 +432,8 @@ impl ServerManager {
             let _ = bus2.send(serde_json::json!({ "event": "log", "serverId": id2, "level": "info", "line": format!("سرور متوقف شد (کد {code:?})"), "ts": now() }));
         });
 
-        tokio::spawn(async move { pump(stdout, ctx, false).await });
-        tokio::spawn(async move { pump(stderr, ctx1, true).await });
+        tokio::task::spawn_local(async move { pump(stdout, ctx, false).await });
+        tokio::task::spawn_local(async move { pump(stderr, ctx1, true).await });
 
         let state = rt.lock().await;
         Ok(self.to_info(&state).await)

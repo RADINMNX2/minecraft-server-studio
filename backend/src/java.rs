@@ -197,7 +197,7 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<()> {
     let mut archive = zip::ZipArchive::new(file)?;
     // The Adoptium zip wraps everything in a single top-level folder; strip it.
     let strip = archive
-        .get(0)
+        .by_index(0)
         .ok()
         .and_then(|f| {
             let name = f.name();

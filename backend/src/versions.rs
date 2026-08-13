@@ -79,7 +79,8 @@ async fn vanilla() -> Result<Vec<VersionInfo>, String> {
             let id = v.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string();
             let t = v.get("type").and_then(|x| x.as_str()).unwrap_or("");
             let stable = t == "release";
-            out.push(VersionInfo { id, stable, latest: id == latest_release });
+            let latest = id == latest_release;
+            out.push(VersionInfo { id, stable, latest });
         }
     }
     // releases first, then snapshots

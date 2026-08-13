@@ -2,11 +2,13 @@ use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use serde::Serialize;
+use base64::Engine;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::process::Stdio;
 use tokio::fs;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::Mutex;
 
 use crate::http;
@@ -15,7 +17,7 @@ use crate::versions;
 
 const LOG_CAP: usize = 8000;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     pub id: String,
     pub name: String,
@@ -108,6 +110,7 @@ impl ServerManager {
                                 logs: VecDeque::new(),
                                 players_online: 0,
                                 players_max: 0,
+                                players: Vec::new(),
                                 pid: None,
                                 java_path: None,
                                 java_override: None,
@@ -122,7 +125,8 @@ impl ServerManager {
     pub async fn list_servers(&self) -> Vec<ServerInfo> {
         let mut out = Vec::new();
         for s in self.servers.lock().await.values() {
-            out.push(self.to_info(&s.lock().await).await);
+            let state = s.lock().await;
+            out.push(self.to_info(&state).await);
         }
         out
     }
@@ -202,7 +206,8 @@ impl ServerManager {
         };
         self.servers.lock().await.insert(id, Arc::new(Mutex::new(rt)));
         let rt = self.servers.lock().await.get(&cfg.id).unwrap().clone();
-        Ok(self.to_info(&rt.lock().await).await)
+        let state = rt.lock().await;
+        Ok(self.to_info(&state).await)
     }
 
     async fn prepare(&self, cfg: &mut ServerConfig) -> Result<(), String> {
@@ -370,7 +375,7 @@ impl ServerManager {
 
         let mut child = cmd.spawn().map_err(|e| format!("عدم اجرای سرور: {e}"))?;
         let stdout: ChildStdout = child.stdout.take().ok_or("stdout مفقود")?;
-        let stderr: ChildStdout = child.stderr.take().ok_or("stderr مفقود")?;
+        let stderr: ChildStderr = child.stderr.take().ok_or("stderr مفقود")?;
         let stdin = child.stdin.take();
 
         let pid = child.id();
@@ -551,7 +556,8 @@ impl ServerManager {
 
     pub async fn list_banned(&self, id: &str) -> Result<Vec<(String, String)>, String> {
         let rt = self.servers.lock().await.get(id).cloned().ok_or("سرور یافت نشد")?;
-        let dir = Path::new(&rt.lock().await.config.path);
+        let state = rt.lock().await;
+        let dir = Path::new(&state.config.path);
         let path = dir.join("banned-players.json");
         let content = fs::read_to_string(&path).await.unwrap_or_else(|_| "[]".into());
         let arr: serde_json::Value = serde_json::from_str(&content).unwrap_or(serde_json::Value::Array(vec![]));
@@ -598,7 +604,8 @@ impl ServerManager {
 
     pub async fn get_properties(&self, id: &str) -> Result<HashMap<String, String>, String> {
         let rt = self.servers.lock().await.get(id).cloned().ok_or("سرور یافت نشد")?;
-        let dir = Path::new(&rt.lock().await.config.path);
+        let state = rt.lock().await;
+        let dir = Path::new(&state.config.path);
         let content = fs::read_to_string(dir.join("server.properties")).await.unwrap_or_default();
         let mut map = HashMap::new();
         for line in content.lines() {
@@ -615,7 +622,8 @@ impl ServerManager {
 
     pub async fn set_property(&self, id: &str, key: &str, value: &str) -> Result<(), String> {
         let rt = self.servers.lock().await.get(id).cloned().ok_or("سرور یافت نشد")?;
-        let dir = Path::new(&rt.lock().await.config.path);
+        let state = rt.lock().await;
+        let dir = Path::new(&state.config.path);
         let path = dir.join("server.properties");
         let content = fs::read_to_string(&path).await.unwrap_or_default();
         let mut lines: Vec<String> = Vec::new();
@@ -653,23 +661,24 @@ fn parse_required_major(logs: &str) -> Option<u32> {
     None
 }
 
-async fn pump(stream: ChildStdout, ctx: Ctx, is_stderr: bool) {
+async fn pump<R: AsyncRead + Unpin>(stream: R, ctx: Ctx, is_stderr: bool) {
     let mut reader = BufReader::new(stream).lines();
     while let Ok(Some(line)) = reader.next_line().await {
         let level = if is_stderr { "error" } else { detect_level(&line) };
-        let changed = {
+        let (changed, names) = {
             let mut st = ctx.state.lock().await;
             if st.logs.len() >= LOG_CAP {
                 st.logs.pop_front();
             }
             st.logs.push_back(line.clone());
-            update_players(&line, &mut st.players_online, &mut st.players_max, &mut st.players)
+            let changed = update_players(&line, &mut st);
+            let names = st.players.clone();
+            (changed, names)
         };
         let _ = ctx.bus.send(serde_json::json!({
             "event": "log", "serverId": ctx.id, "level": level, "line": line, "ts": now()
         }));
         if changed {
-            let names = ctx.state.lock().await.players.clone();
             let _ = ctx.bus.send(serde_json::json!({
                 "event": "players_list", "serverId": ctx.id, "names": names
             }));
@@ -702,16 +711,16 @@ fn line_before(line: &str, suffix: &str) -> Option<String> {
     None
 }
 
-fn update_players(line: &str, online: &mut u32, max: &mut u32, players: &mut Vec<String>) -> bool {
+fn update_players(line: &str, st: &mut ServerRuntime) -> bool {
     let mut changed = false;
     if let Some(idx) = line.find("There are ") {
         let tail = &line[idx + 10..];
         if let Some(sp) = tail.find(" of a max ") {
             if let Ok(o) = tail[..sp].trim().parse::<u32>() {
-                *online = o;
+                st.players_online = o;
                 if let Some(mp) = tail[sp + 9..].trim().split(' ').next() {
                     if let Ok(m) = mp.parse::<u32>() {
-                        *max = m;
+                        st.players_max = m;
                     }
                 }
             }
@@ -719,11 +728,11 @@ fn update_players(line: &str, online: &mut u32, max: &mut u32, players: &mut Vec
             let numpart = tail[..sp].trim();
             if let Some(slash) = numpart.find('/') {
                 if let (Ok(o), Ok(m)) = (numpart[..slash].trim().parse::<u32>(), numpart[slash + 1..].trim().parse::<u32>()) {
-                    *online = o;
-                    *max = m;
+                    st.players_online = o;
+                    st.players_max = m;
                 }
             } else if let Ok(o) = numpart.parse::<u32>() {
-                *online = o;
+                st.players_online = o;
             }
         }
         if let Some(colo) = line.rfind("online:") {
@@ -733,24 +742,24 @@ fn update_players(line: &str, online: &mut u32, max: &mut u32, players: &mut Vec
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect();
-            if names != *players {
-                *players = names;
+            if names != st.players {
+                st.players = names;
                 changed = true;
             }
-        } else if !players.is_empty() {
-            *players = Vec::new();
+        } else if !st.players.is_empty() {
+            st.players = Vec::new();
             changed = true;
         }
     }
     if let Some(name) = line_before(line, " joined the game") {
-        if !players.contains(&name) {
-            players.push(name);
+        if !st.players.contains(&name) {
+            st.players.push(name);
             changed = true;
         }
     }
     if let Some(name) = line_before(line, " left the game") {
-        if let Some(pos) = players.iter().position(|p| p == &name) {
-            players.remove(pos);
+        if let Some(pos) = st.players.iter().position(|p| p == &name) {
+            st.players.remove(pos);
             changed = true;
         }
     }

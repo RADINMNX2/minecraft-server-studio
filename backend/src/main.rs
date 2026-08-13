@@ -55,7 +55,7 @@ async fn main() {
         let mgr = manager.clone();
         let out_mutex = out_mutex.clone();
         tokio::spawn(async move {
-            let result = handle(id, &method, params, &mgr).await;
+            let result = handle(id, &method, params, mgr).await;
             let resp = match result {
                 Ok(v) => Response { id, result: Some(v), error: None },
                 Err(e) => Response { id, result: None, error: Some(e) },

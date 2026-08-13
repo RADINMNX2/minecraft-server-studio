@@ -4,7 +4,7 @@
   "description": "Professional, modern Minecraft server manager built with Electron, React, Rust and Node.js",
   "license": "MIT",
   "author": "RADINMNX",
-  "main": "out/main/index.cjs",
+  "main": "out/main/index.js",
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",

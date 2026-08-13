@@ -756,4 +756,3 @@ fn update_players(line: &str, online: &mut u32, max: &mut u32, players: &mut Vec
     }
     changed
 }
-}

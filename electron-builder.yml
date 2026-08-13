@@ -1,0 +1,27 @@
+appId: com.mcss.studio
+productName: Minecraft Server Studio
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: bin
+    to: bin
+    filter:
+      - "mcss_backend.exe"
+win:
+  target:
+    - target: nsis
+      arch: x64
+  artifactName: MCSS-Setup-${version}.${ext}
+  shortcutName: Minecraft Server Studio
+  shortcutDir: ProgramMenuFolder
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+publish:
+  - provider: github

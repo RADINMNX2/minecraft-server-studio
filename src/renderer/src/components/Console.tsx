@@ -1,63 +1,107 @@
+import { useEffect, useRef, useState } from 'react'
+import { Icon } from './Icon'
+
 const COLORS: Record<string, string> = {
   '0': '#1c1c1c', '1': '#3b5bdb', '2': '#2f9e44', '3': '#0c8599',
   '4': '#e03131', '5': '#9c36b5', '6': '#f08c00', '7': '#adb5bd',
   '8': '#495057', '9': '#4dabf7', a: '#40c057', b: '#3bc9db',
   c: '#ff6b6b', d: '#faa2c1', e: '#ffd43b', f: '#f1f3f5',
 }
+const DEFAULT_COLOR = '#cdd3e0'
 
-function renderLine(line: string) {
-  const parts: { text: string; color: string }[] = []
-  let cur = '#cdd3e0'
+interface Part {
+  text: string
+  color: string
+}
+
+function renderLine(line: string): Part[] {
+  const parts: Part[] = []
+  let cur = DEFAULT_COLOR
   let buf = ''
+  const flush = () => {
+    if (buf) parts.push({ text: buf, color: cur })
+    buf = ''
+  }
   for (let i = 0; i < line.length; i++) {
     const ch = line[i]
     if (ch === '§' && i + 1 < line.length) {
-      if (buf) parts.push({ text: buf, color: cur })
-      buf = ''
+      flush()
       const code = line[i + 1].toLowerCase()
-      if (code === 'r') cur = '#cdd3e0'
+      if (code === 'r') cur = DEFAULT_COLOR
       else if (COLORS[code]) cur = COLORS[code]
       i++
       continue
     }
     buf += ch
   }
-  if (buf) parts.push({ text: buf, color: cur })
+  flush()
   return parts
 }
 
 export function Console({ logs, onCommand }: { logs: string[]; onCommand: (c: string) => void }) {
-  const ref = (el: HTMLDivElement | null) => {
-    if (el) el.scrollTop = el.scrollHeight
-  }
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [autoScroll, setAutoScroll] = useState(true)
+  const [cmd, setCmd] = useState('')
+
+  useEffect(() => {
+    const el = boxRef.current
+    if (el && autoScroll) el.scrollTop = el.scrollHeight
+  }, [logs, autoScroll])
+
   return (
-    <>
-      <div className="console" ref={ref}>
-        {logs.length === 0 && <span className="c-debug">هنوز لاگی وجود ندارد…</span>}
+    <div className="console-wrap">
+      <div className="console-toolbar">
+        <div className="console-dots">
+          <span className="cd red" />
+          <span className="cd yellow" />
+          <span className="cd green" />
+        </div>
+        <span className="console-title">Server Console</span>
+        <button
+          className={'console-follow' + (autoScroll ? ' active' : '')}
+          onClick={() => setAutoScroll((v) => !v)}
+          title="اسکرول خودکار"
+        >
+          <Icon name="chevronRight" size={13} />
+          {autoScroll ? 'دنبال‌کردن' : 'متوقف'}
+        </button>
+      </div>
+      <div className="console" ref={boxRef}>
+        {logs.length === 0 && <span className="console-empty">هنوز لاگی وجود ندارد…</span>}
         {logs.map((l, i) => (
-          <span className="line c-info" key={i}>
+          <div className="console-line" key={i}>
             {renderLine(l).map((p, j) => (
               <span key={j} style={{ color: p.color }}>
                 {p.text}
               </span>
             ))}
-          </span>
+          </div>
         ))}
       </div>
       <form
         className="cmd-bar"
         onSubmit={(e) => {
           e.preventDefault()
-          const v = (e.target as any).cmd.value
-          if (v.trim()) onCommand(v.trim())
-          ;(e.target as any).cmd.value = ''
+          if (cmd.trim()) {
+            onCommand(cmd.trim())
+            setCmd('')
+          }
         }}
       >
-        <input className="input" name="cmd" placeholder="دستور را وارد کنید (مثلاً: say سلام)…" />
-        <button className="btn" type="submit">
+        <span className="cmd-prompt">›</span>
+        <input
+          className="cmd-input"
+          value={cmd}
+          onChange={(e) => setCmd(e.target.value)}
+          placeholder="دستور را وارد کنید… (مثلاً: say سلام)"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <button className="btn cmd-send" type="submit" disabled={!cmd.trim()}>
+          <Icon name="send" size={14} />
           ارسال
         </button>
       </form>
-    </>
+    </div>
   )
 }

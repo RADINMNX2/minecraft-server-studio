@@ -2,9 +2,7 @@ node_modules/
 out/
 release/
 dist/
-backend/target/
 *.log
 .DS_Store
-bin/
 src/renderer/dist/
 npm-debug.log*

@@ -1,4 +1,4 @@
-// Shared IPC contract between Electron (Node) <-> Rust backend <-> React renderer.
+// قرارداد مشترک بین Electron (Node) و رابط کاربری React.
 
 export type LoaderId =
   | 'vanilla'
@@ -10,11 +10,13 @@ export type LoaderId =
   | 'neoforge'
   | 'forge';
 
+export type LoaderFamily = 'vanilla' | 'paper' | 'fabric' | 'forge';
+
 export interface LoaderMeta {
   id: LoaderId;
   name: string;
   description: string;
-  family: 'vanilla' | 'paper' | 'fabric' | 'forge';
+  family: LoaderFamily;
   supportsPlugins: boolean;
   supportsMods: boolean;
 }
@@ -28,7 +30,7 @@ export interface VersionInfo {
 export interface ServerConfig {
   id: string;
   name: string;
-  loader: string;
+  loader: LoaderId;
   version: string;
   port: number;
   ramMb: number;
@@ -58,84 +60,62 @@ export interface JavaInfo {
   source: 'system' | 'managed';
 }
 
-// ---- Requests (Electron -> Rust) ----
-export interface ReqListLoaders { method: 'list_loaders'; params: Record<string, never> }
-export interface ReqListVersions { method: 'list_versions'; params: { loader: LoaderId; refresh?: boolean } }
-export interface ReqDetectJava { method: 'detect_java'; params: Record<string, never> }
-export interface ReqCreateServer {
-  method: 'create_server';
-  params: {
-    name: string;
-    loader: LoaderId;
-    version: string;
-    port?: number;
-    ramMb?: number;
-    minRamMb?: number;
-    javaMajor?: number;
-    onlineMode?: boolean;
-    motd?: string;
+// ---- درخواست‌های Renderer -> Main ----
+export type RequestMap = {
+  list_loaders: { params: Record<string, never>; result: LoaderMeta[] };
+  list_versions: { params: { loader: LoaderId; refresh?: boolean }; result: VersionInfo[] };
+  detect_java: { params: Record<string, never>; result: JavaInfo[] };
+  create_server: {
+    params: {
+      name: string;
+      loader: LoaderId;
+      version: string;
+      port?: number;
+      ramMb?: number;
+      minRamMb?: number;
+      javaMajor?: number;
+      onlineMode?: boolean;
+      motd?: string;
+      icon?: string;
+    };
+    result: ServerInfo;
   };
-}
-export interface ReqListServers { method: 'list_servers'; params: Record<string, never> }
-export interface ReqStartServer { method: 'start_server'; params: { id: string } }
-export interface ReqStopServer { method: 'stop_server'; params: { id: string; force?: boolean } }
-export interface ReqRestartServer { method: 'restart_server'; params: { id: string } }
-export interface ReqSendCommand { method: 'send_command'; params: { id: string; command: string } }
-export interface ReqGetLogs { method: 'get_logs'; params: { id: string; tail?: number } }
-export interface ReqDeleteServer { method: 'delete_server'; params: { id: string; removeFiles?: boolean } }
-export interface ReqGetProperties { method: 'get_properties'; params: { id: string } }
-export interface ReqSetProperty { method: 'set_property'; params: { id: string; key: string; value: string } }
-export interface ReqGetJavaForVersion { method: 'required_java'; params: { version: string } }
-export interface ReqListPlayers { method: 'list_players'; params: { id: string } }
-export interface ReqPlayerAction {
-  method: 'player_action';
-  params: {
-    id: string;
-    action: 'ban' | 'pardon' | 'kick' | 'op' | 'deop' | 'gamemode' | 'tp' | 'xp' | 'give' | 'heal' | 'feed';
-    target: string;
-    mode?: string;
-    x?: number;
-    y?: number;
-    z?: number;
-    amount?: number;
-    item?: string;
+  list_servers: { params: Record<string, never>; result: ServerInfo[] };
+  start_server: { params: { id: string }; result: ServerInfo };
+  stop_server: { params: { id: string; force?: boolean }; result: ServerInfo };
+  restart_server: { params: { id: string }; result: ServerInfo };
+  send_command: { params: { id: string; command: string }; result: { ok: boolean } };
+  get_logs: { params: { id: string; tail?: number }; result: { lines: string[] } };
+  delete_server: { params: { id: string; removeFiles?: boolean }; result: { ok: boolean } };
+  get_properties: { params: { id: string }; result: Record<string, string> };
+  set_property: { params: { id: string; key: string; value: string }; result: { ok: boolean } };
+  required_java: { params: { version: string }; result: { major: number } };
+  list_players: { params: { id: string }; result: string[] };
+  player_action: {
+    params: {
+      id: string;
+      action: 'ban' | 'pardon' | 'kick' | 'op' | 'deop' | 'gamemode' | 'tp' | 'xp' | 'give' | 'heal' | 'feed';
+      target: string;
+      mode?: string;
+      x?: number;
+      y?: number;
+      z?: number;
+      amount?: number;
+      item?: string;
+    };
+    result: { ok: boolean };
   };
-}
-export interface ReqListBanned { method: 'list_banned'; params: { id: string } }
+  list_banned: { params: { id: string }; result: BannedPlayer[] };
+};
 
 export interface BannedPlayer {
   name: string;
   reason: string;
 }
 
-export type BackendRequest =
-  | ReqListLoaders | ReqListVersions | ReqDetectJava | ReqCreateServer
-  | ReqListServers | ReqStartServer | ReqStopServer | ReqRestartServer
-  | ReqSendCommand | ReqGetLogs | ReqDeleteServer | ReqGetProperties
-  | ReqSetProperty | ReqGetJavaForVersion | ReqListPlayers | ReqPlayerAction
-  | ReqListBanned;
+// ---- رویدادهای Main -> Renderer (بدون درخواست) ----
+export type LogLevel = 'info' | 'warn' | 'error' | 'debug' | 'chat';
 
-export type RequestMap = {
-  list_loaders: { params: ReqListLoaders['params']; result: LoaderMeta[] };
-  list_versions: { params: ReqListVersions['params']; result: VersionInfo[] };
-  detect_java: { params: ReqDetectJava['params']; result: JavaInfo[] };
-  create_server: { params: ReqCreateServer['params']; result: ServerInfo };
-  list_servers: { params: ReqListServers['params']; result: ServerInfo[] };
-  start_server: { params: ReqStartServer['params']; result: ServerInfo };
-  stop_server: { params: ReqStopServer['params']; result: ServerInfo };
-  restart_server: { params: ReqRestartServer['params']; result: ServerInfo };
-  send_command: { params: ReqSendCommand['params']; result: { ok: boolean } };
-  get_logs: { params: ReqGetLogs['params']; result: { lines: string[] } };
-  delete_server: { params: ReqDeleteServer['params']; result: { ok: boolean } };
-  get_properties: { params: ReqGetProperties['params']; result: Record<string, string> };
-  set_property: { params: ReqSetProperty['params']; result: { ok: boolean } };
-  required_java: { params: ReqGetJavaForVersion['params']; result: { major: number } };
-  list_players: { params: ReqListPlayers['params']; result: string[] };
-  player_action: { params: ReqPlayerAction['params']; result: { ok: boolean } };
-  list_banned: { params: ReqListBanned['params']; result: BannedPlayer[] };
-};
-
-// ---- Events (Rust -> Electron, unsolicited) ----
 export type BackendEvent =
   | { event: 'log'; serverId: string; line: string; level: LogLevel; ts: number }
   | { event: 'status'; serverId: string; status: ServerStatus; pid?: number }
@@ -145,14 +125,34 @@ export type BackendEvent =
   | { event: 'java_download'; major: number; percent: number; done: boolean }
   | { event: 'error'; serverId?: string; message: string };
 
-export type LogLevel = 'info' | 'warn' | 'error' | 'debug' | 'chat';
-
 export interface TunnelInfo {
   urls: string[];
   active: boolean;
+  error?: string;
 }
 
 export type TunnelMsg =
   | { type: 'url'; urls: string[] }
   | { type: 'error'; message: string }
   | { type: 'stopped' };
+
+export type ToastKind = 'success' | 'error' | 'info' | 'warn';
+
+export interface ToastMsg {
+  id: number;
+  text: string;
+  kind: ToastKind;
+}
+
+// ---- قرارداد API که از طریق preload در معرض window قرار می‌گیرد ----
+export interface MCSSApi {
+  backend: <K extends keyof RequestMap>(method: K, params?: RequestMap[K]['params']) => Promise<RequestMap[K]['result'] | { error: string }>;
+  tunnelStart: (port: number) => Promise<any>;
+  tunnelStop: () => Promise<any>;
+  selectFolder: () => Promise<string | null>;
+  onBackendEvent: (cb: (e: BackendEvent) => void) => void;
+  onTunnelEvent: (cb: (e: TunnelMsg) => void) => void;
+  windowMinimize: () => void;
+  windowMaximize: () => void;
+  windowClose: () => void;
+}

@@ -1,7 +1,7 @@
 # Minecraft Server Studio (MCSS)
 
 برنامه‌ای حرفه‌ای و مدرن برای ساخت، مدیریت و اجرای سرورهای ماینکرفت — با
-**Electron + React + Rust + Node.js**.
+**Electron + React + Node.js**.
 
 سازنده: **RADINMNX**
 
@@ -13,21 +13,21 @@
 - تشخیص خودکار Java و **دانلود خودکار JDK** متناسب با هر نسخه (حتی نسخه‌های آینده که جاوای جدید می‌خواهند).
 - دسترسی اینترنتی (آنلاین) بدون Port Forwarding از طریق تانل رایگان **pinggy**.
 - رابط کاربری تمام‌صفحه، شیشه‌ای و نئونی با پنجره بدون حاشیه.
+- انیمیشن‌های نرم GPU و بارگذاری تنبل (Lazy Loading) برای کارایی بالا.
 
 ## معماری
 ```
 src/
-  main/      Electron main (پل به Rust + تانل آنلاین)
+  main/      Electron main (موتور مدیریت سرور به‌صورت کاملاً Node.js)
   preload/   contextBridge امن
-  renderer/  رابط کاربری React + Vite
+  renderer/  رابط کاربری React + Vite (با Lazy Loading)
   shared/    قرارداد IPC مشترک (TypeScript)
-backend/     موتور Rust (مدیریت سرورها، دانلود، جاوا) — خروجی: mcss_backend.exe
 ```
-Rust به صورت باینری کامپایل‌شده کنار الکترون قرار می‌گیرد و از طریق JSON-RPC روی stdio
-با لایه Node صحبت می‌کند.
+همه‌چیز در یک فرایند Electron اجرا می‌شود — بدون هیچ وابستگی به Rust یا باینری خارجی.
+مدیریت سرورها، دانلود فایل‌ها، تشخیص/دانلود Java و تانل آنلاین همگی در Node.js (TypeScript) پیاده‌سازی شده‌اند.
 
 ## ساخت (همه چیز روی GitHub Actions)
-کامپایل Rust و بیلد الکترون و تولید فایل `.exe` در گیت‌هاب انجام می‌شود:
+بیلد الکترون و تولید فایل `.exe` در گیت‌هاب انجام می‌شود:
 1. ریپو را در گیت‌هاب بسازید.
 2. برچسب بزنید: `git tag v1.0.0 && git push --tags`
 3. workflow `Build Windows EXE` اجرا شده و فایل نصبی `.exe` را به‌عنوان Release منتشر می‌کند.
@@ -35,7 +35,6 @@ Rust به صورت باینری کامپایل‌شده کنار الکترون 
 
 برای اجرای محلی (توسعه‌دهنده):
 ```
-cargo build --release          # در پوشه backend
 npm install
 npm run dev
 ```

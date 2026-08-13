@@ -1,17 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
-import type { BackendEvent, TunnelMsg } from '../shared/types'
-
-export interface MCSSApi {
-  backend: (method: string, params?: any) => Promise<any>
-  tunnelStart: (port: number) => Promise<any>
-  tunnelStop: () => Promise<any>
-  selectFolder: () => Promise<string | null>
-  onBackendEvent: (cb: (e: BackendEvent) => void) => void
-  onTunnelEvent: (cb: (e: TunnelMsg) => void) => void
-  windowMinimize: () => void
-  windowMaximize: () => void
-  windowClose: () => void
-}
+import type { BackendEvent, MCSSApi, TunnelMsg } from '../shared/types'
 
 const api: MCSSApi = {
   backend: (method, params) => ipcRenderer.invoke('backend', method, params ?? {}),

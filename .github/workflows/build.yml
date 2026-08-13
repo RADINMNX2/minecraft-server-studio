@@ -15,25 +15,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust (stable, MSVC)
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Build Rust backend
-        working-directory: backend
-        run: cargo build --release
-
-      - name: Stage backend binary
-        run: |
-          mkdir bin
-          copy backend\target\release\mcss_backend.exe bin\mcss_backend.exe
-
       - name: Install npm dependencies
         run: npm install
+
+      - name: Type check
+        run: npm run lint
 
       - name: Build Electron app
         run: npm run build

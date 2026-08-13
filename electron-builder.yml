@@ -6,11 +6,6 @@ directories:
 files:
   - out/**/*
   - package.json
-extraResources:
-  - from: bin
-    to: bin
-    filter:
-      - "mcss_backend.exe"
 win:
   target:
     - target: nsis

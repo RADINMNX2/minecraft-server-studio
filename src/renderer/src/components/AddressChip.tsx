@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Icon } from './Icon'
 
 interface Props {
   value: string
@@ -8,6 +9,7 @@ interface Props {
 
 export function AddressChip({ value, label, primary }: Props) {
   const [copied, setCopied] = useState(false)
+
   const copy = async () => {
     let ok = false
     try {
@@ -35,19 +37,16 @@ export function AddressChip({ value, label, primary }: Props) {
     }
     if (ok) {
       setCopied(true)
-      setTimeout(() => setCopied(false), 1400)
+      setTimeout(() => setCopied(false), 1500)
     }
   }
+
   return (
-    <button
-      className={`addr-chip${primary ? ' primary' : ''}`}
-      onClick={copy}
-      title={`کپی: ${value}`}
-    >
+    <button className={`addr-chip${primary ? ' primary' : ''}`} onClick={copy} title={`کپی: ${value}`}>
       <span className="dot" />
       {label && <span className="lbl">{label}</span>}
       <span className="val">{value}</span>
-      <span className="copy">{copied ? 'کپی شد ✓' : 'کپی'}</span>
+      <span className={`copy${copied ? ' done' : ''}`}>{copied ? 'کپی شد' : <Icon name="copy" size={13} />}</span>
     </button>
   )
 }

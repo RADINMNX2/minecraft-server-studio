@@ -1,6 +1,6 @@
 {
   "name": "minecraft-server-studio",
-  "version": "1.0.0",
+  "version": "1.0.8",
   "description": "Professional, modern Minecraft server manager built with Electron, React, Rust and Node.js",
   "license": "MIT",
   "author": "RADINMNX",

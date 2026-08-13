@@ -3,6 +3,8 @@
 برنامه‌ای حرفه‌ای و مدرن برای ساخت، مدیریت و اجرای سرورهای ماینکرفت — با
 **Electron + React + Rust + Node.js**.
 
+سازنده: **RADINMNX**
+
 ## ویژگی‌ها
 - پشتیبانی از تمام لودرها: **Vanilla, Paper, Purpur, Folia, Fabric, Quilt, NeoForge, Forge**
 - لیست نسخه‌ها به‌صورت **زنده** از منابع رسمی (Mojang, PaperMC, Fabric, Forge, NeoForge, Quilt) دریافت می‌شود؛ با انتشار هر نسخه جدید، بلافاصله در برنامه ظاهر می‌شود.

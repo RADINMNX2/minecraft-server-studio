@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { LoaderMeta, VersionInfo } from '../../../shared/types'
 import { call } from '../api'
 
@@ -22,8 +22,10 @@ export function CreateServer({
   const [port, setPort] = useState(25565)
   const [onlineMode, setOnlineMode] = useState(false)
   const [motd, setMotd] = useState('A Minecraft Server')
+  const [icon, setIcon] = useState('')
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (!loader) return
@@ -37,6 +39,12 @@ export function CreateServer({
       })
       .finally(() => setLoading(false))
   }, [loader])
+
+  function pickIcon(file: File) {
+    const reader = new FileReader()
+    reader.onload = () => setIcon(String(reader.result))
+    reader.readAsDataURL(file)
+  }
 
   async function submit() {
     if (!name.trim() || !loader || !version) {
@@ -54,6 +62,7 @@ export function CreateServer({
         port,
         onlineMode,
         motd,
+        icon,
       })
       if (res && res.error) {
         showToast('خطا: ' + res.error)
@@ -100,10 +109,43 @@ export function CreateServer({
         </div>
 
         <div className="row">
-          <div className="field">
+          <div className="field" style={{ flex: 1 }}>
             <label>نام سرور</label>
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="سرور من" />
           </div>
+          <div className="field" style={{ flex: '0 0 auto' }}>
+            <label>آیکون سرور</label>
+            <div className="icon-picker">
+              {icon ? (
+                <img className="icon-preview" src={icon} alt="icon" />
+              ) : (
+                <div className="icon-preview empty">{name.slice(0, 1).toUpperCase() || 'M'}</div>
+              )}
+              <div className="icon-actions">
+                <button className="btn small" onClick={() => fileRef.current?.click()}>
+                  انتخاب عکس
+                </button>
+                {icon && (
+                  <button className="btn small ghost" onClick={() => setIcon('')}>
+                    حذف
+                  </button>
+                )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) pickIcon(f)
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row">
           <div className="field">
             <label>نسخه {loading && '(دریافت…)'}</label>
             <select className="select" value={version} onChange={(e) => setVersion(e.target.value)} disabled={!loader || loading}>
@@ -116,6 +158,21 @@ export function CreateServer({
               ))}
             </select>
           </div>
+          <div className="field">
+            <label>پورت</label>
+            <input className="input" type="number" value={port} onChange={(e) => setPort(+e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <label>پیام سرور (MOTD)</label>
+          <textarea
+            className="input textarea"
+            rows={2}
+            value={motd}
+            onChange={(e) => setMotd(e.target.value)}
+            placeholder="پیامی که در لیست بازیکنان نمایش داده می‌شود"
+          />
         </div>
 
         <div className="row">
@@ -126,17 +183,6 @@ export function CreateServer({
           <div className="field">
             <label>رم حداقل: {minRamMb} MB</label>
             <input type="range" min={512} max={ramMb} step={256} value={minRamMb} onChange={(e) => setMinRamMb(+e.target.value)} />
-          </div>
-        </div>
-
-        <div className="row">
-          <div className="field">
-            <label>پورت</label>
-            <input className="input" type="number" value={port} onChange={(e) => setPort(+e.target.value)} />
-          </div>
-          <div className="field">
-            <label>پیام سرور (MOTD)</label>
-            <input className="input" value={motd} onChange={(e) => setMotd(e.target.value)} />
           </div>
         </div>
 

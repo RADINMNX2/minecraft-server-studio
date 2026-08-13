@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Professional, modern Minecraft server manager built with Electron, React, Rust and Node.js",
   "license": "MIT",
-  "author": "MCSS Team",
+  "author": "RADINMNX",
   "main": "out/main/index.cjs",
   "type": "module",
   "scripts": {

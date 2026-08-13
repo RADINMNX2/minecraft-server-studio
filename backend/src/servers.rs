@@ -27,6 +27,8 @@ pub struct ServerConfig {
     pub java_major: u32,
     pub online_mode: bool,
     pub motd: String,
+    #[serde(default)]
+    pub icon: String,
     pub jar_file: String,
     pub path: String,
     pub created_at: u64,
@@ -164,6 +166,7 @@ impl ServerManager {
             java_major,
             online_mode,
             motd,
+            icon: params.get("icon").and_then(|v| v.as_str()).unwrap_or("").to_string(),
             jar_file: String::new(),
             path: dir.to_string_lossy().to_string(),
             created_at: now(),
@@ -176,6 +179,12 @@ impl ServerManager {
 
         let json = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
         fs::write(dir.join("mcss.json"), json).await.map_err(|e| e.to_string())?;
+
+        if let Some(b64) = cfg.icon.strip_prefix("data:image/png;base64,") {
+            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b64.trim()) {
+                let _ = fs::write(dir.join("server-icon.png"), bytes).await;
+            }
+        }
 
         let rt = ServerRuntime {
             config: cfg.clone(),

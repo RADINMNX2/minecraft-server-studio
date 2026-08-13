@@ -61,6 +61,18 @@ export function Settings({ onToast }: { onToast: (m: string) => void }) {
           لیست نسخه‌ها به‌صورت زنده از منابع رسمی (Mojang، PaperMC، Fabric، Forge، NeoForge، Quilt) دریافت می‌شود؛ پس از انتشار هر نسخه جدید، بلافاصله در برنامه ظاهر می‌شود.
         </p>
       </div>
+
+      <div className="panel card" style={{ padding: 20, marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>درباره</h3>
+        <div className="about">
+          <div className="about-logo">MCSS</div>
+          <div>
+            <div className="about-name">Minecraft Server Studio</div>
+            <div className="tag">ساخته شده توسط <b>RADINMNX</b></div>
+            <div className="tag">نسخه 1.0 · موتور Rust + رابط Electron/React</div>
+          </div>
+        </div>
+      </div>
     </>
   )
 }

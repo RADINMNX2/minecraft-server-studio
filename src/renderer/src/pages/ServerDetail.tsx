@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ServerInfo } from '../../../shared/types'
 import { Console } from '../components/Console'
+import { AddressChip } from '../components/AddressChip'
 import { call } from '../api'
 
 type Tab = 'console' | 'settings' | 'online'
@@ -59,12 +60,23 @@ export function ServerDetail({
 
   return (
     <>
-      <div className="page-head">
-        <div>
+      <div className="page-head detail-head">
+        <div className="detail-icon-wrap">
+          {server.icon ? (
+            <img className="detail-icon" src={server.icon} alt={server.name} />
+          ) : (
+            <div className="detail-icon fallback">{server.name.slice(0, 1).toUpperCase()}</div>
+          )}
+        </div>
+        <div className="detail-meta">
           <h1>{server.name}</h1>
           <p>
-            {server.loader} · {server.version} · پورت {server.port} · وضعیت: {server.status}
+            {displayLoader(server.loader)} · {server.version} · وضعیت: {server.status}
           </p>
+          <div className="detail-addr">
+            <AddressChip value={`localhost:${server.port}`} label="لوکال" />
+            <span className="tag">{server.players_online}/{server.players_max} بازیکن</span>
+          </div>
         </div>
         <button className="btn" onClick={onBack}>
           ← بازگشت
@@ -148,11 +160,11 @@ export function ServerDetail({
           {tunnel.urls?.length > 0 && (
             <div style={{ marginTop: 16 }}>
               <div className="tag">آدرس عمومی سرور (در بازی وارد کنید):</div>
-              {tunnel.urls.map((u) => (
-                <div key={u} className="input" style={{ marginTop: 8, fontFamily: 'monospace' }}>
-                  {u.replace('tcp://', '')}
-                </div>
-              ))}
+              <div className="addr-list">
+                {tunnel.urls.map((u) => (
+                  <AddressChip key={u} value={u.replace('tcp://', '')} label="عمومی" primary />
+                ))}
+              </div>
             </div>
           )}
           {tunnel.error && <p className="tag" style={{ color: 'var(--bad)' }}>خطا: {tunnel.error}</p>}
@@ -160,4 +172,18 @@ export function ServerDetail({
       )}
     </>
   )
+}
+
+function displayLoader(l: string) {
+  const map: Record<string, string> = {
+    vanilla: 'Vanilla',
+    paper: 'Paper',
+    purpur: 'Purpur',
+    folia: 'Folia',
+    fabric: 'Fabric',
+    quilt: 'Quilt',
+    neoforge: 'NeoForge',
+    forge: 'Forge',
+  }
+  return map[l] || l
 }

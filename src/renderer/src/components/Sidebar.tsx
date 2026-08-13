@@ -17,7 +17,8 @@ export function Sidebar({ view, setView }: { view: string; setView: (v: string) 
         </div>
       ))}
       <div className="spacer" />
-      <div className="ver">MCSS v1.0 · Rust + Electron</div>
+      <div className="ver">MCSS v1.0</div>
+      <div className="ver by">ساخته شده توسط RADINMNX</div>
     </div>
   )
 }

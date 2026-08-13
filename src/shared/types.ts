@@ -28,15 +28,17 @@ export interface VersionInfo {
 export interface ServerConfig {
   id: string;
   name: string;
-  loader: LoaderId;
+  loader: string;
   version: string;
   port: number;
   ramMb: number;
   minRamMb: number;
-  javaMajor: number;       // requested Java major (0 = auto)
+  javaMajor: number;
   onlineMode: boolean;
   motd: string;
-  path: string;            // absolute directory
+  icon: string;
+  jarFile: string;
+  path: string;
   createdAt: number;
 }
 

@@ -16,12 +16,11 @@ win:
     - target: nsis
       arch: x64
   artifactName: MCSS-Setup-${version}.${ext}
-  shortcutName: Minecraft Server Studio
-  shortcutDir: ProgramMenuFolder
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
+  shortcutName: Minecraft Server Studio
 publish:
   - provider: github
